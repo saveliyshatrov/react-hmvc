@@ -4,3 +4,4 @@ node_modules/
 example/
 .snapshots/
 *.min.js
+/.idea

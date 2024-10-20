@@ -1,5 +1,6 @@
 import * as React from 'react'
 import promiseAllProperties from 'promise-all-properties'
+import { createContext, useContext } from 'react'
 
 type PromisableValue<T> = T | Promise<T>
 
@@ -47,6 +48,8 @@ class ErrorBoundary extends React.Component<
     )
   }
 }
+
+export const WidgetContext = createContext<unknown>({})
 
 class CreateWidget<ComponentProps, ControllerProps> extends React.PureComponent<
   CreateWidgetType<ComponentProps, ControllerProps> & {
@@ -102,7 +105,11 @@ class CreateWidget<ComponentProps, ControllerProps> extends React.PureComponent<
   render() {
     if (this.state.isError && this.props.errorView) {
       const ErrorView = this.props.errorView as React.FC
-      return <ErrorView />
+      return (
+        <WidgetContext.Provider value={{ isError: this.state.isError }}>
+          <ErrorView />
+        </WidgetContext.Provider>
+      )
     }
     if (this.state.showNothing) {
       return null
@@ -111,9 +118,11 @@ class CreateWidget<ComponentProps, ControllerProps> extends React.PureComponent<
       const View = this.props.view as React.FC<ComponentProps>
 
       return (
-        <div data-name={this.props.name}>
-          <View {...this.state.result} />
-        </div>
+        <WidgetContext.Provider value={this.state.result}>
+          <div data-name={this.props.name}>
+            <View {...this.state.result} />
+          </div>
+        </WidgetContext.Provider>
       )
     }
     if (
@@ -122,7 +131,11 @@ class CreateWidget<ComponentProps, ControllerProps> extends React.PureComponent<
       !this.state.isError
     ) {
       const PendingView = this.props.pendingView as React.FC
-      return <PendingView />
+      return (
+        <WidgetContext.Provider value={{}}>
+          <PendingView />
+        </WidgetContext.Provider>
+      )
     }
     return null
   }
@@ -136,4 +149,35 @@ export function createWidget<ComponentProps, ControllerProps>(
       <CreateWidget {...props} controllerProps={controllerProps} />
     </ErrorBoundary>
   )
+}
+
+export function useWidgetData<WidgetData extends object>(): WidgetData {
+  const data = useContext(WidgetContext) as WidgetData
+
+  if (!data) {
+    throw new Error('useWidgetData without context')
+  }
+
+  return data
+}
+
+export function connectToWidget<WidgetData>() {
+  return function <Props>(Component: React.ComponentType<Props>) {
+    class Wrapper extends React.PureComponent<Exclude<Props, WidgetData>> {
+      render() {
+        if (!this.context) {
+          throw Error(`${Component.displayName} could not find widget context`)
+        }
+
+        // @ts-ignore
+        return <Component {...this.props} {...this.context} />
+      }
+    }
+
+    Wrapper.contextType = WidgetContext
+
+    return Wrapper as unknown as React.ComponentType<
+      Omit<Props, keyof WidgetData>
+    >
+  }
 }

@@ -52,7 +52,58 @@ const WrapperComponent: React.FC<WrapperComponentProps> = ({ ids }) => (
     }
   </>
 )
+```
 
+Sub-components can connect to widget context and easily use widget data
+
+```tsx
+import { createWidget } from "react-hmvc";
+
+const Widget = createWidget<ViewProps, ControllerProps>({
+  name: "Widget",
+  view: MainView,
+  controller: () => {
+    return ({
+      propString: "example",
+      propNumber: 123,
+      propBoolean: true,
+    })
+  }
+})
+
+type SubViewProps = {
+  propBoolean: string;
+  name: string;
+}
+
+const SubView: React.FC<SubViewProps> = ({ propBoolean, name }) => {
+  if (propBoolean) {
+    return (
+      <div>{ name }</div>
+    );
+  }
+
+  return null;
+}
+
+const SubViewHook: React.FC<{name: string}> = ({ name }) => {
+  const data = useWidgetData();
+
+  return (
+    <SubView propBoolean={ data.propBoolean } name={ name }/>
+  );
+}
+
+const SubViewConnect = connectToWidget()(SubView)
+
+const MainView = () => {
+  return (
+    <>
+      <SubViewHook name="SubViewHook"/>
+      <SubViewConnect name="SubViewConnect"/>
+    </>
+  )
+}
 ```
 
 ## License
